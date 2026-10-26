@@ -1,0 +1,44 @@
+🚀 Next project work — priority order
+
+1. Load best_model.pth
+
+No retraining.
+Confirm model loads correctly.
+
+2. Build prediction pipeline
+Upload image → Resize 224×224 → Normalize → EfficientNet-B0 → Benign/Malignant + confidence
+
+3. Confidence score
+
+Display predicted class + probability.
+Example: Malignant — 87.3% confidence.
+
+4. Grad-CAM ⭐
+
+Generate heatmap showing which lesion regions influenced the prediction.
+This is important for your XAI contribution.
+
+5. LIME
+
+Generate local explanation/highlighted regions.
+Keep it as a complementary explanation to Grad-CAM.
+
+6. Clinical decision-support output
+Something like:
+
+Prediction: Malignant
+Confidence: 87.3%
+Explanation: Highlighted lesion regions
+Recommendation: Further evaluation by a dermatologist.
+
+Clearly label this as preliminary decision support, not diagnosis.
+
+7. Integrate into Neha's website
+Image upload → Model prediction → Confidence → Grad-CAM/LIME → Decision-support result
+
+8. Final validation
+Test the complete pipeline on several unseen images and capture screenshots for:
+
+PPT
+Report
+Demo/viva

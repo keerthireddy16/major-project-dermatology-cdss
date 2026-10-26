@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Dataset images and archives
+ISIC-images/
+ISIC-images.zip
+check_dataset.zip
+
+# Model checkpoints
+*.pth
+*.pt
+
+# Temporary files
+~$*
+.env
+
+# Local editor settings
+.vscode/
