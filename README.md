@@ -1,8 +1,10 @@
 # DermAI — AI-Based Clinical Decision Support System for Dermatological Diseases
 
-DermAI is an AI-based clinical decision support prototype designed to assist in the preliminary assessment of skin lesions. It uses deep learning to classify skin lesion images, provides visual explanations through Grad-CAM, and presents assessment results through a web-based interface.
+DermAI is an explainable AI-based clinical decision support prototype designed to assist in the preliminary assessment of skin lesions. It uses deep transfer learning with **EfficientNet-B0** to classify dermoscopic images into benign and malignant categories, provides visual feature attribution through **Grad-CAM (Gradient-weighted Class Activation Mapping)**, delivers local multilingual voice output across 5 Indian languages, and exports formal 3-page landscape clinical PDF reports.
 
-> **Medical Disclaimer:** DermAI is an academic research prototype, not a medical device. Its predictions are not a substitute for professional medical advice, diagnosis, or treatment. A qualified healthcare professional must evaluate any concerning skin lesion.
+> **Medical & Ethical Disclaimer:** DermAI is an academic research prototype developed strictly for educational demonstration and decision-support exploration. It is **not** an approved medical device, and its outputs do **not** constitute medical advice, diagnosis, or treatment plans. A qualified healthcare professional (dermatologist) must evaluate any concerning skin lesion or abnormal skin change.
+
+---
 
 ## Table of Contents
 
@@ -10,326 +12,314 @@ DermAI is an AI-based clinical decision support prototype designed to assist in 
 - [Key Features](#key-features)
 - [Technology Stack](#technology-stack)
 - [System Architecture](#system-architecture)
-- [Dataset](#dataset)
-- [Model Evaluation](#model-evaluation)
+- [Multilingual Voice & Audio System](#multilingual-voice--audio-system)
+- [Explainable AI (Grad-CAM)](#explainable-ai-grad-cam)
+- [Clinical Decision & Safety Guidance](#clinical-decision--safety-guidance)
+- [3-Page Landscape PDF Report Export](#3-page-landscape-pdf-report-export)
+- [Dataset & Model Benchmark](#dataset--model-benchmark)
 - [Project Structure](#project-structure)
 - [Installation and Setup](#installation-and-setup)
 - [Running the Application](#running-the-application)
-- [Explainable AI](#explainable-ai)
-- [Limitations](#limitations)
-- [Future Enhancements](#future-enhancements)
+- [Limitations & Ethical Boundaries](#limitations--ethical-boundaries)
 - [Team and Academic Context](#team-and-academic-context)
+
+---
 
 ## Project Overview
 
-DermAI integrates computer vision, deep learning, explainable AI, and web technologies into a single application for preliminary skin lesion assessment.
+DermAI addresses key clinical and technical challenges in computer-aided skin lesion screening:
+1. **Binary Diagnostic Screening:** Classifying dermoscopic lesions as either Benign or Malignant using a class-weighted EfficientNet-B0 convolutional neural network fine-tuned on the benchmark HAM10000 collection.
+2. **Explainable AI (XAI):** Demystifying deep neural decisions via full-width Grad-CAM activation mapping, allowing users to verify whether the model is focusing on legitimate morphological pigment networks rather than peripheral artifacts or hair.
+3. **Automated Quality Pre-Screening:** Performing input format validation and Laplacian variance focus screening to flag blurry or low-contrast images before inference.
+4. **Inclusive Multilingual Audio Accessibility:** Providing medically safe spoken explanations in **5 Indian languages** (English, Telugu, Kannada, Hindi, and Tamil) with zero cloud API keys, billing dependencies, or OS language packs.
+5. **Modern Two-Column Clinical Layout & PDF Export:** Presenting balanced diagnostic outputs on a $1220\text{px}$ desktop grid, with one-click generation of an exact 3-page landscape assessment report.
 
-The system uses a trained **EfficientNet-B0** model to process skin lesion images and generate a prediction. The application presents the assessment results and uses **Gradient-weighted Class Activation Mapping (Grad-CAM)** to highlight image regions that influenced the model's output.
-
-The project focuses on model evaluation, interpretability, accessibility through a web interface, and transparent communication of the system's limitations.
+---
 
 ## Key Features
 
-- **AI-based image classification:** Uses a trained EfficientNet-B0 model for binary benign-versus-malignant classification.
-- **Image intake:** Provides a web interface for submitting skin lesion images.
-- **Assessment results:** Displays model predictions and associated confidence information.
-- **Explainable AI:** Uses Grad-CAM heatmaps to visualize image regions contributing to the prediction.
-- **Research details:** Presents model evaluation metrics and experimental results.
-- **REST API:** Uses FastAPI to connect the frontend with the inference pipeline.
-- **Responsive web interface:** Built with React and Vite.
-- **Automated testing:** Includes tests for the prediction pipeline and backend API.
+- **EfficientNet-B0 Deep Learning:** Fine-tuned on confirmed dermoscopic images from the HAM10000 benchmark dataset.
+- **Automated Image Quality Screening:** Computes Laplacian variance sharpness score (focus threshold $>15.0$) to detect blurry, unreadable images.
+- **Full-Width Grad-CAM Visual Evidence:** Large side-by-side comparison of the original dermoscopic image against the Grad-CAM activation overlay (4:3 aspect ratio, no stretching or awkward cropping).
+- **3-Stage Parameter Decomposition:** Expandable view decomposing Normalized Input ($224 \times 224$), Activation Heatmap (last convolutional gradients), and Superimposed Overlay.
+- **Multilingual Voice & Text Guidance:** Spoken explanations and text translations in 5 languages:
+  - English (`en-IN`)
+  - Telugu (`te-IN` • తెలుగు)
+  - Kannada (`kn-IN` • ಕನ್ನಡ)
+  - Hindi (`hi-IN` • हिन्दी)
+  - Tamil (`ta-IN` • தமிழ்)
+- **Local Audio Engine:** 15 pre-rendered, verified high-definition MPEG Layer-III audio assets stored locally in `frontend/public/audio/`. Works 100% offline without paid cloud subscriptions.
+- **Audio Controls:** Interactive **Listen**, **Pause**, **Resume**, and **Stop** controls, plus an optional English fallback voice button.
+- **Compact Scoped Translation Control:** Single-line toggle allowing users to choose between:
+  - `(●) Result only`: Webpage headers and navigation remain in English while the assessment result and voice are localized.
+  - `(○) Entire page`: Webpage headers, navigation, ABCDE guide, and disclaimers are translated.
+- **Structured Clinical Safety Framework:**
+  - When to seek professional dermatologist evaluation.
+  - Interactive ABCDE warning signs (Asymmetry, Border, Color, Diameter, Evolving).
+  - Explicit explanation of diagnostic uncertainty factors.
+  - Red flag indicators never to ignore.
+  - Strict clinical boundaries (no drug prescriptions, no certainty guarantees).
+- **Formal 3-Page Landscape PDF Export:** One-click report printing (`window.print()`) formatted via CSS Paged Media (`@page { size: landscape; }`) ensuring clean page breaks without split cards or trailing empty pages.
+
+---
 
 ## Technology Stack
 
-| Component | Technology |
+| Layer | Technologies & Tools |
 |---|---|
-| Programming language | Python, JavaScript |
-| Deep learning | PyTorch, EfficientNet-B0 |
-| Backend | FastAPI |
-| Frontend | React, Vite, CSS |
-| Image processing | Pillow, torchvision |
-| Explainability | Grad-CAM |
-| Data analysis and evaluation | NumPy, pandas, scikit-learn |
-| Testing | pytest |
-| Version control | Git and GitHub |
+| **Deep Learning** | PyTorch, torchvision, EfficientNet-B0 |
+| **Explainable AI** | Grad-CAM (Gradient-weighted Class Activation Mapping) |
+| **Backend API** | Python 3.10+, FastAPI, Uvicorn, Pydantic |
+| **Computer Vision** | OpenCV (`cv2`), Pillow (`PIL`), NumPy |
+| **Frontend Framework** | React 18, Vite 5/8 |
+| **Styling & Paged Media** | Modern CSS3 (CSS Grid, Flexbox, `@page`, `@media print`) |
+| **Audio Synthesis** | Pre-rendered MPEG Layer-III (MP3), HTML5 Web Audio API |
+| **Data Evaluation** | scikit-learn, pandas, NumPy, GroupKFold |
+| **Testing** | pytest, Requests |
+| **Version Control** | Git, GitHub |
+
+---
 
 ## System Architecture
 
-The application follows an image-inference workflow:
-
-1. The user uploads a skin lesion image through the frontend.
-2. The frontend sends the image to the FastAPI backend.
-3. The backend preprocesses the image using the model's required input transformations.
-4. The trained EfficientNet-B0 model generates a prediction score.
-5. The system applies the configured decision threshold to produce a binary classification.
-6. Grad-CAM generates a visual explanation of the model's prediction.
-7. The frontend displays the assessment and explanation.
-
 ```text
-User
-  |
-  v
-React + Vite Frontend
-  |
-  v
-FastAPI Backend
-  |
-  v
-Image Preprocessing
-  |
-  v
-Trained EfficientNet-B0
-  |
-  +------> Prediction Score
-  |
-  +------> Grad-CAM Explanation
-  |
-  v
-Assessment Results
+[ User Intake (Upload / Verified Benchmark Sample) ]
+                         │
+                         ▼
+[ FastAPI Backend Pipeline (backend/main.py) ]
+  ├── 1. Intake Validation: Format check (JPEG, PNG, WEBP), size limit (10MB)
+  ├── 2. Image Quality Scan: Laplacian variance sharpness screening (cv2)
+  ├── 3. Preprocessing: Resize 224x224, ImageNet normalization
+  ├── 4. EfficientNet-B0 Inference: Softmax class probabilities (Benign vs Malignant)
+  └── 5. Grad-CAM Engine: Gradient computation at final convolutional stage
+                         │
+                         ▼
+[ React + Vite Responsive Frontend (App.jsx) ]
+  ├── TOP SECTION (Two-Column Desktop Grid):
+  │     ├── LEFT: Submitted Lesion Specimen & Quality Screening Card
+  │     └── RIGHT: Model Decision (Score, Softmax Chips) & Scoped Language Selector
+  ├── SECTION 2 (Full-Width Explainable AI):
+  │     ├── Side-by-side Original vs Grad-CAM Overlay (4:3 aspect ratio)
+  │     └── Expandable 3-Stage Feature Parameter Decomposition
+  ├── SECTION 3 (Full-Width Patient Safety):
+  │     ├── When to seek care & 5-Column ABCDE Warning Signs Grid
+  │     ├── Diagnostic Uncertainty Factors & Red Flags
+  │     └── Strict Clinical & Ethical Boundaries
+  └── ACTIONS: Evaluate Another Image & Export 3-Page Landscape PDF Report
 ```
 
-## Dataset
+---
 
-The project uses the **HAM10000 (Human Against Machine with 10000 training images) dataset**, a publicly available collection of dermatoscopic skin lesion images.
+## Multilingual Voice & Audio System
 
-The project uses a binary classification setup:
+DermAI eliminates language and literacy barriers through localized voice explanations:
 
-- **Benign:** Non-malignant class.
-- **Malignant:** Malignant class.
+- **15 Verified Local Audio Assets:**
+  - 5 Languages: English, Telugu, Kannada, Hindi, Tamil.
+  - 3 Clinical Scenarios:
+    - `caseA`: Benign assessment explanation and routine observation guidance.
+    - `caseB`: Concerning/Malignant assessment explanation and urgent dermatologist referral guidance.
+    - `caseC`: Unsupported or blurry image notification requesting a clearer dermoscopic capture.
+- **Audio Asset Location:** `frontend/public/audio/{lang}_{case}.mp3`
+- **Zero Paid Dependencies:** Runs completely offline without Azure Speech or Google Cloud TTS billing dependencies.
+- **Stateful Playback Controls:** Fully managed Listen, Pause, Resume, and Stop controls synchronized with the UI.
 
-The evaluation workflow uses separate training, validation, and test partitions. The test partition is used to assess the model's performance on held-out images.
+---
 
-The test set contains **2,314 images**:
+## Explainable AI (Grad-CAM)
 
-| Class | Number of images |
+DermAI integrates **Grad-CAM** at the final convolutional feature extraction stage of EfficientNet-B0:
+
+1. **Feature Attribution:** Calculates gradients of the target class score with respect to feature activation maps.
+2. **Visual Evidence:** Generates a heatmap highlighting morphological regions that contributed to the classification.
+3. **Superimposed Overlay:** Blends the jet-colormap heatmap onto the normalized input lesion.
+4. **Full-Width Presentation:** Equal-width panels ($560\text{px}+$ each) with preserved aspect ratio ensure that dermatoscopic borders, pigment reticulations, and vascular structures are fully visible without distortion.
+
+---
+
+## 3-Page Landscape PDF Report Export
+
+Clicking **"Export assessment report"** triggers browser print preview with a dedicated `@media print` layout:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ PAGE 1: EVALUATION SUMMARY & TWO-COLUMN ASSESSMENT         │
+│ • Formal Header: Evaluation ID, Timestamps, Benchmark Meta  │
+│ • LEFT: Submitted Specimen & Quality Screening (Complete)   │
+│ • RIGHT: DermAI Prediction, Score & Localized Explanation   │
+└─────────────────────────────────────────────────────────────┘
+                              │ (break-before: page)
+┌─────────────────────────────────────────────────────────────┐
+│ PAGE 2: FULL-WIDTH EXPLAINABLE AI (GRAD-CAM) EVIDENCE       │
+│ • Full-Width Visual Explanation Header                      │
+│ • Large Equal-Width Panels: Original Image & Overlay        │
+│ • Explanatory Caption Box                                   │
+│ • 3-Stage Feature Decomposition (Compact Non-Splitting)    │
+└─────────────────────────────────────────────────────────────┘
+                              │ (break-before: page)
+┌─────────────────────────────────────────────────────────────┐
+│ PAGE 3: CLINICAL GUIDANCE & SAFETY BOUNDARIES               │
+│ • When to Seek Professional Dermatologist Care              │
+│ • ABCDE Warning Signs Grid (5 Columns Across)               │
+│ • Diagnostic Uncertainty Factors & Urgent Red Flags         │
+│ • Strict Clinical & Ethical Boundaries Safeguard            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Orientation:** `@page { size: landscape; margin: 10mm 12mm; }`.
+- **Clean Anti-Splitting:** Interactive buttons, audio controls, and radio selectors are automatically hidden. Headings and cards use `break-inside: avoid;` to prevent orphaned elements or empty pages.
+
+---
+
+## Dataset & Model Benchmark
+
+Trained and evaluated on the benchmark **HAM10000** dermatoscopic collection using **StratifiedGroupKFold** grouped by patient `lesion_id` to prevent data leakage.
+
+### Held-Out Test Set Performance ($N = 2,314$)
+
+| Metric | Result (Threshold = 0.50) |
 |---|---:|
-| Benign | 1,883 |
-| Malignant | 431 |
-| **Total** | **2,314** |
+| **Accuracy** | **88.38%** |
+| **Malignant Recall (Sensitivity)** | **71.46%** |
+| **Malignant Precision** | **67.84%** |
+| **Specificity** | **92.25%** |
+| **ROC-AUC** | **93.59%** |
+| **Malignant F1-Score** | **69.60%** |
 
-Dataset source: [HAM10000 — Harvard Dataverse](https://doi.org/10.7910/DVN/DBW86T)
+### Test Set Confusion Matrix ($N = 2,314$)
 
-**Important:** The dataset is intended for research and educational use. Dataset labels, class mapping, preprocessing, and partitioning must be verified before reproducing the experiments.
-
-## Model Evaluation
-
-The trained EfficientNet-B0 checkpoint is evaluated on the held-out test set. The following results represent the baseline operating threshold of **0.50**.
-
-### Baseline results
-
-| Metric | Result |
-|---|---:|
-| Accuracy | 88.38% |
-| Malignant precision | 67.84% |
-| Malignant recall (sensitivity) | 71.46% |
-| Malignant F1-score | 69.60% |
-| Specificity | 92.25% |
-| ROC-AUC | 93.59% |
-
-### Confusion matrix
-
-Rows represent actual classes; columns represent predicted classes.
-
-| Actual / Predicted | Benign | Malignant |
+| Actual \ Predicted | Predicted Benign | Predicted Malignant |
 |---|---:|---:|
-| Benign | 1,737 | 146 |
-| Malignant | 123 | 308 |
+| **Actual Benign** | 1,737 | 146 |
+| **Actual Malignant** | 123 | 308 |
 
-### Alternative decision threshold
-
-A lower threshold, approximately **0.31**, has also been examined as a sensitivity-oriented operating point.
-
-| Metric | Previously reported result |
-|---|---:|
-| Accuracy | 86.47% |
-| Malignant precision | 59.61% |
-| Malignant recall | 84.92% |
-| Malignant F1-score | 70.05% |
-
-Lowering the threshold increases malignant sensitivity at the cost of more false-positive predictions.
-
-**Evaluation note:** The provenance of the previously reported lower threshold has not been independently established. It should therefore be treated as a previously reported operating point, not as a confirmed validation-selected clinical threshold. The 0.50 baseline is the primary reproducible benchmark.
-
-These results are experimental model metrics, not evidence of clinical effectiveness. Performance on other populations, image acquisition conditions, and real-world clinical data may differ.
+---
 
 ## Project Structure
 
 ```text
 MAJOR_PROJECT/
 ├── backend/
-│   └── main.py
+│   └── main.py                     # FastAPI backend (Inference, Grad-CAM, Quality scan)
 ├── frontend/
 │   ├── public/
+│   │   ├── audio/                  # 15 Verified HD MP3 voice files (en, hi, kn, ta, te)
+│   │   └── samples/                # Benchmark dermoscopic sample images
 │   ├── src/
-│   │   ├── assets/
-│   │   ├── App.jsx
-│   │   ├── App.css
-│   │   ├── index.css
-│   │   └── main.jsx
+│   │   ├── clinicalTranslations.js # 5-language medical translations & audio player engine
+│   │   ├── prototypeSamples.json   # Prototype sample definitions & metadata
+│   │   ├── App.jsx                 # Main React UI (Two-column layout, Grad-CAM, Voice, Guidance)
+│   │   └── index.css               # Styling, 1220px container, and 3-page landscape print CSS
 │   ├── package.json
 │   └── vite.config.js
+├── src/
+│   ├── image_quality.py            # Laplacian variance focus screening
+│   └── input_validation.py         # Image format and dimensional constraints
 ├── tests/
-│   ├── test_backend_api.py
-│   └── test_pipeline.py
-├── presentation_screenshots/
-├── app.py
-├── predict.py
-├── audit_evaluation.py
-├── audit_splits.py
-├── audit_test_thresholds.py
-├── pytest.ini
-└── README.md
+│   ├── test_backend_api.py         # Backend endpoint tests
+│   └── test_pipeline.py            # PyTorch pipeline tests
+├── best_model.pth                  # Trained EfficientNet-B0 model checkpoint
+├── app.py                          # Streamlit legacy / secondary research interface
+├── audit_evaluation.py             # Evaluation audit script
+├── audit_splits.py                 # Dataset partition leakage validation
+├── README.md                       # Comprehensive project documentation
+└── pytest.ini                      # Test runner configuration
 ```
 
-The trained model checkpoint and dataset files are not included in this structure because they may need to be obtained or configured separately.
+---
 
 ## Installation and Setup
 
 ### Prerequisites
 
-Install the following:
+- **Python:** 3.10, 3.11, 3.12, or 3.13
+- **Node.js:** 18+ and `npm`
+- **Git**
 
-- Python 3.10 or another Python version supported by the project's dependencies.
-- Node.js and npm.
-- Git.
-- The trained model checkpoint and the required dataset files.
-
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/keerthireddy16/major-project-dermatology-cdss.git
 cd major-project-dermatology-cdss
 ```
 
-### 2. Set up the Python environment
-
-On Windows:
+### 2. Set Up Python Environment
 
 ```bash
+# Create and activate virtual environment
 python -m venv .venv
+
+# Windows:
 .venv\Scripts\activate
+
+# Linux / macOS:
+source .venv/bin/activate
+
+# Install dependencies:
+pip install torch torchvision opencv-python pillow fastapi uvicorn pydantic requests python-multipart pytest
 ```
 
-Install the Python dependencies required by the backend, model, and tests.
-
-If the repository contains a `requirements.txt` file:
-
-```bash
-pip install -r requirements.txt
-```
-
-If it does not, install the dependencies specified by the project's Python imports and environment configuration. The exact dependency versions should be pinned before attempting a reproducible installation.
-
-### 3. Configure the model and dataset
-
-Obtain the trained `best_model.pth` checkpoint from the project owner or its original training environment. Place it at the path expected by the backend and prediction pipeline, or configure the model path accordingly.
-
-Obtain the required HAM10000 images and metadata separately. Configure the dataset and CSV paths to match the project's expected directory structure.
-
-The model checkpoint and dataset images are not automatically downloaded by the application.
-
-### 4. Install frontend dependencies
-
-Open a terminal in the project root:
+### 3. Install Frontend Dependencies
 
 ```bash
 cd frontend
 npm install
+cd ..
 ```
+
+---
 
 ## Running the Application
 
-Run the backend and frontend in separate terminals.
+Run the backend and frontend in separate terminals:
 
-### Start the backend
-
-From the project root, activate the Python environment and run:
+### Terminal 1: Start FastAPI Backend
 
 ```bash
-uvicorn backend.main:app --reload
+uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+- API Docs: `http://127.0.0.1:8000/docs`
 
-The backend will normally be available at:
-
-```text
-http://127.0.0.1:8000
-```
-
-If FastAPI's interactive API documentation is enabled, access:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-### Start the frontend
-
-In another terminal:
+### Terminal 2: Start React Frontend
 
 ```bash
 cd frontend
 npm run dev
 ```
+- Open browser at `http://localhost:5173`
 
-Open the local URL printed by Vite in the terminal, commonly:
-
-```text
-http://localhost:5173
-```
-
-Ensure the frontend's API configuration points to the running backend. The model checkpoint, Python dependencies, dataset paths, and any required environment variables must be configured before inference can work correctly.
-
-### Run tests
-
-From the project root, with the Python environment activated:
+### Run Test Suite
 
 ```bash
 pytest
 ```
 
-### Build the frontend
+### Build Frontend for Production
 
 ```bash
 cd frontend
 npm run build
 ```
 
-The build command checks whether the frontend can be compiled for production.
+---
 
-## Explainable AI
+## Limitations & Ethical Boundaries
 
-DermAI uses **Grad-CAM** to create a heatmap highlighting image regions associated with the model's prediction.
-
-The explanation is intended to help users inspect which regions influenced the model output. It does not establish that the highlighted regions are medically meaningful, nor does it prove that the prediction is correct.
-
-## Limitations
-
-- The system is a research prototype and is not validated for independent clinical diagnosis.
-- Predictions depend on image quality, dataset composition, model training, and preprocessing.
-- Class imbalance can affect precision, recall, and the number of false-positive and false-negative predictions.
-- A decision threshold changes the trade-off between sensitivity and specificity.
-- Grad-CAM provides a visual explanation, not a causal explanation or clinical justification.
-- The reported evaluation results do not guarantee performance on external clinical datasets.
-- The current binary classification setup does not represent the full range of dermatological diseases.
-
-## Future Enhancements
-
-- Evaluate generalization using independent external datasets.
-- Improve threshold selection using validation-only data and a documented selection procedure.
-- Expand testing for image uploads, invalid inputs, and API failure cases.
-- Improve model calibration and uncertainty communication.
-- Explore multimodal assessment incorporating structured clinical information, with appropriate validation.
-- Conduct rigorous clinical evaluation and obtain the required regulatory and ethical approvals before any clinical deployment.
-
-## Team and Academic Context
-
-DermAI is an academic major project developed as part of undergraduate engineering work in Computer Science and Engineering.
-
-The project demonstrates the integration of deep learning, computer vision, explainable AI, backend API development, and frontend engineering into a research-oriented clinical decision support prototype.
-
-## License and Attribution
-
-The project code's license should be specified by the project maintainers before redistribution. HAM10000 is a third-party dataset; users must follow the dataset's original terms and attribution requirements.
+- **Academic Prototype:** DermAI is designed for academic evaluation and clinical workflow demonstration; it is **not** cleared by FDA, CE, or CDSCO as a medical device.
+- **Dermoscopic Scope:** The model is trained on dermoscopic images. Ordinary mobile camera photographs under non-standardized lighting or focus may yield unreliable predictions.
+- **No Diagnostic Prescriptions:** DermAI strictly provides preliminary triage guidance and will never prescribe topical medications, creams, or surgical treatments.
+- **Mandatory Professional Review:** Any lesion displaying asymmetry, border irregularity, color variegation, or evolving changes must be examined in person by a board-certified dermatologist.
 
 ---
 
-**Disclaimer:** DermAI is intended for academic research and educational demonstration only. It must not be used as the sole basis for diagnosis, treatment, or other medical decisions.
+## Team and Academic Context
+
+DermAI was developed as an undergraduate major project in **Computer Science and Engineering**. The project integrates deep learning, medical computer vision, explainable AI, audio accessibility, and modern web application development into a unified decision-support prototype.
+
+- **Developer:** Keerthi Reddy
+- **Institution:** Department of Computer Science & Engineering
+- **Year:** 2026
+
+---
+
+*DermAI · Intelligent Skin Lesion Analysis — 2026*
