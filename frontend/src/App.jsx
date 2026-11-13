@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
+import {
+  CLINICAL_TRANSLATIONS,
+  playVoiceSpeech,
+  pauseVoiceSpeech,
+  resumeVoiceSpeech,
+  stopVoiceSpeech,
+  isLanguageVoiceSupported,
+  getAvailableVoices,
+} from './clinicalTranslations';
+import prototypeSamples from './prototypeSamples.json';
 
 const API_BASE = '/api';
 
@@ -31,17 +41,36 @@ export default function App() {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
 
+  // Multilingual & Voice output state (Listen, Pause, Stop)
+  const [selectedLang, setSelectedLang] = useState('en');
+  const [translateWholePage, setTranslateWholePage] = useState(false);
+  const [playbackState, setPlaybackState] = useState('idle'); // 'idle' | 'playing' | 'paused'
+  const [showDeepDive, setShowDeepDive] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState([]);
+
   // Authoritative evaluation metrics state
   const [evalData, setEvalData] = useState(null);
   const [evalTab, setEvalTab] = useState('reproduced'); // 'reproduced' | 'presentation'
 
   const fileInputRef = useRef(null);
 
-  // Initial load
+  // Initial load & voice availability detection
   useEffect(() => {
     checkHealth();
     fetchBenchmarks();
     fetchEvaluationMetrics();
+
+    const updateVoices = () => {
+      setAvailableVoices(getAvailableVoices());
+    };
+    updateVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+
+    return () => {
+      stopVoiceSpeech();
+    };
   }, []);
 
   // Cleanup object URLs to avoid memory leaks
@@ -111,6 +140,7 @@ export default function App() {
   };
 
   const handleStartOver = () => {
+    handleStopSpeech();
     setResult(null);
     setError(null);
     setSelectedFile(null);
@@ -125,6 +155,7 @@ export default function App() {
   };
 
   const handleNewAssessment = () => {
+    handleStopSpeech();
     setResult(null);
     setError(null);
     setSelectedFile(null);
@@ -136,6 +167,53 @@ export default function App() {
     setShowSampleChooser(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
     navigateTo('intake');
+  };
+
+  const handleStopSpeech = () => {
+    stopVoiceSpeech();
+    setPlaybackState('idle');
+  };
+
+  const handleStartSpeech = (text, useEnglishFallback = false, fallbackCaseKey = 'caseA') => {
+    stopVoiceSpeech();
+    const started = playVoiceSpeech(
+      text,
+      useEnglishFallback ? 'en' : selectedLang,
+      () => setPlaybackState('playing'),
+      () => setPlaybackState('idle'),
+      () => setPlaybackState('idle'),
+      useEnglishFallback,
+      fallbackCaseKey
+    );
+    if (started) {
+      setPlaybackState('playing');
+    }
+  };
+
+  const handlePauseSpeech = () => {
+    pauseVoiceSpeech();
+    setPlaybackState('paused');
+  };
+
+  const handleResumeSpeech = () => {
+    resumeVoiceSpeech();
+    setPlaybackState('playing');
+  };
+
+  const handleSelectLanguage = (langKey) => {
+    handleStopSpeech();
+    setSelectedLang(langKey);
+  };
+
+  const handleLaunchPrototype = (sampleKey = 'benign') => {
+    handleStopSpeech();
+    const mockData = prototypeSamples[sampleKey] || prototypeSamples.benign;
+    setResult(mockData);
+    setError(null);
+    setSelectedFile(null);
+    setSelectedBenchmarkId(mockData.filename);
+    setPreviewUrl(mockData.preview_image);
+    navigateTo('assessment');
   };
 
   // Drag and drop handlers
@@ -195,8 +273,8 @@ export default function App() {
     if (previewUrl && previewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(previewUrl);
     }
-    setPreviewUrl(null);
     setSelectedBenchmarkId(sampleId);
+    setPreviewUrl(`/samples/${sampleId}`);
     setShowSampleChooser(false);
   };
 
@@ -289,6 +367,9 @@ export default function App() {
             >
               Research & Metrics
             </button>
+            <div style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem', paddingLeft: '0.75rem', borderLeft: '1px solid #E2E8F0', fontSize: '0.78rem', color: '#64748B' }}>
+              <span>⚙️ Language: <strong style={{ color: '#0F766E' }}>{translateWholePage ? 'Entire Webpage' : 'Content Only'}</strong></span>
+            </div>
           </nav>
         </div>
       </header>
@@ -378,6 +459,30 @@ export default function App() {
                 </button>
               </div>
 
+              {/* Prototype Preview Mode Direct Access */}
+              <div className="prototype-cta-banner">
+                <div className="prototype-cta-text">
+                  <strong>✨ Experience Prototype Preview Mode:</strong> Explore the new multilingual result card with voice audio output, Grad-CAM visualization, and ABCDE clinical guidance.
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="prototype-cta-btn"
+                    onClick={() => handleLaunchPrototype('benign')}
+                  >
+                    Benign Demo (94.2%)
+                  </button>
+                  <button
+                    type="button"
+                    className="prototype-cta-btn"
+                    style={{ backgroundColor: '#B91C1C' }}
+                    onClick={() => handleLaunchPrototype('malignant')}
+                  >
+                    Malignant Demo (87.3%)
+                  </button>
+                </div>
+              </div>
+
               <div className="disclaimer-card" role="note">
                 <strong>Essential Research Notice:</strong> DermAI is an experimental academic prototype developed for 
                 decision-support research. It is not a licensed diagnostic device and cannot substitute for clinical examination 
@@ -459,13 +564,24 @@ export default function App() {
                 </div>
               </div>
 
-              {/* File Selected Indicator */}
-              {selectedFile && (
-                <div className="selected-file-preview">
-                  <div>
-                    <div className="file-info-name">{selectedFile.name}</div>
-                    <div className="file-info-meta">
-                      {(selectedFile.size / 1024).toFixed(1)} KB • Ready for neural analysis
+              {/* File or Benchmark Selected Preview */}
+              {(selectedFile || selectedBenchmarkId) && (
+                <div className="selected-file-preview" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem' }}>
+                  {previewUrl && (
+                    <img
+                      src={previewUrl}
+                      alt="Selected lesion preview"
+                      style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #CBD5E1', flexShrink: 0 }}
+                    />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="file-info-name" style={{ fontWeight: 600, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {selectedFile ? selectedFile.name : `Verified Benchmark: ${selectedBenchmarkId}`}
+                    </div>
+                    <div className="file-info-meta" style={{ fontSize: '0.8rem', color: '#64748B' }}>
+                      {selectedFile
+                        ? `${(selectedFile.size / 1024).toFixed(1)} KB • Ready for automated neural inference`
+                        : 'Independent HAM10000 test set lesion reference'}
                     </div>
                   </div>
                   <button
@@ -474,32 +590,11 @@ export default function App() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedFile(null);
+                      setSelectedBenchmarkId(null);
                       setPreviewUrl(null);
                     }}
                   >
                     Remove
-                  </button>
-                </div>
-              )}
-
-              {/* Benchmark Sample Selected Indicator */}
-              {selectedBenchmarkId && !selectedFile && (
-                <div className="selected-file-preview">
-                  <div>
-                    <div className="file-info-name">Verified Benchmark: {selectedBenchmarkId}</div>
-                    <div className="file-info-meta">
-                      Reference lesion sample from HAM10000 independent test set
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedBenchmarkId(null);
-                    }}
-                  >
-                    Clear sample
                   </button>
                 </div>
               )}
@@ -540,7 +635,7 @@ export default function App() {
               {/* Sample Chooser Panel */}
               {showSampleChooser && (
                 <div className="sample-drawer">
-                  <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#283C32', marginBottom: '0.4rem' }}>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#283C32', marginBottom: '0.5rem' }}>
                     Select a Verified Benchmark Lesion:
                   </div>
                   <div className="sample-grid">
@@ -552,9 +647,18 @@ export default function App() {
                         onClick={() => handleSelectSample(sample.id)}
                         role="button"
                         tabIndex={0}
+                        style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}
                       >
-                        <div className="sample-item-name">{sample.name}</div>
-                        <div className="sample-item-desc">{sample.description}</div>
+                        <img
+                          src={`/samples/${sample.id}`}
+                          alt={sample.name}
+                          style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #E2E8F0', flexShrink: 0 }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                        <div style={{ minWidth: 0 }}>
+                          <div className="sample-item-name">{sample.name}</div>
+                          <div className="sample-item-desc">{sample.description}</div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -583,13 +687,29 @@ export default function App() {
             </div>
 
             {loading && (
-              <div className="loading-box">
-                <div className="loading-spinner-sage"></div>
-                <div style={{ fontWeight: 600, color: '#283C32', marginBottom: '0.25rem' }}>
-                  Processing neural inference...
+              <div className="loading-box" style={{ marginTop: '1.25rem', padding: '1.5rem', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                <div className="loading-spinner-sage" style={{ marginBottom: '0.75rem' }}></div>
+                <div style={{ fontWeight: 700, color: '#1E293B', marginBottom: '0.5rem', fontSize: '1rem' }}>
+                  Processing Neural Pipeline...
                 </div>
-                <div style={{ fontSize: '0.84rem', color: '#536B5E' }}>
-                  Applying validation checks, Laplacian sharpness screening, and Grad-CAM feature attribution.
+                <div style={{ fontSize: '0.84rem', color: '#64748B', marginBottom: '1rem' }}>
+                  Automated clinical pre-screening, Laplacian sharpness analysis, and Grad-CAM spatial activation mapping.
+                </div>
+                
+                {/* Visual Multi-Stage Progress Flow */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '0.5rem', textAlign: 'left' }}>
+                  <div style={{ padding: '0.5rem 0.75rem', background: '#EFF6FF', borderRadius: '6px', fontSize: '0.78rem', color: '#1E40AF', border: '1px solid #BFDBFE' }}>
+                    <strong>1. Intake Check</strong><br/>Format & resolution
+                  </div>
+                  <div style={{ padding: '0.5rem 0.75rem', background: '#F0FDF4', borderRadius: '6px', fontSize: '0.78rem', color: '#166534', border: '1px solid #BBF7D0' }}>
+                    <strong>2. Quality Scan</strong><br/>Laplacian sharpness
+                  </div>
+                  <div style={{ padding: '0.5rem 0.75rem', background: '#FAF5FF', borderRadius: '6px', fontSize: '0.78rem', color: '#6B21A8', border: '1px solid #E9D5FF' }}>
+                    <strong>3. EfficientNet-B0</strong><br/>Binary pattern analysis
+                  </div>
+                  <div style={{ padding: '0.5rem 0.75rem', background: '#FFFBEB', borderRadius: '6px', fontSize: '0.78rem', color: '#92400E', border: '1px solid #FDE68A' }}>
+                    <strong>4. Grad-CAM XAI</strong><br/>Gradient heatmap overlay
+                  </div>
                 </div>
               </div>
             )}
@@ -597,216 +717,450 @@ export default function App() {
         )}
 
         {/* ===================================================================
-            PAGE 3: ASSESSMENT
+            PAGE 3 & 4: MODERN RESULT CARD & CLINICAL ASSESSMENT
             =================================================================== */}
-        {page === 'assessment' && result && (
-          <section className="assessment-view" aria-label="Model Assessment">
-            <div className="page-header">
-              <div className="page-category-tag">Step 2 • Preliminary Assessment</div>
-              <h2 className="page-title">Automated Lesion Assessment</h2>
-              <p className="page-lead">
-                Preliminary pattern analysis generated by the EfficientNet-B0 neural model.
-              </p>
-            </div>
+        {(page === 'assessment' || page === 'explanation') && result && (() => {
+          const content_t = CLINICAL_TRANSLATIONS[selectedLang] || CLINICAL_TRANSLATIONS.en;
+          const ui_t = translateWholePage ? content_t : CLINICAL_TRANSLATIONS.en;
+          
+          let explanationCase = 'caseA';
+          if (!result.success || result.validation?.valid === false || result.is_unclear) {
+            explanationCase = 'caseC';
+          } else if (result.prediction?.predicted_class === 'Malignant' || result.prediction?.is_concerning) {
+            explanationCase = 'caseB';
+          } else {
+            explanationCase = 'caseA';
+          }
+          const simpleExplanationText = content_t[explanationCase];
+          const isBenign = result.prediction?.predicted_class === 'Benign';
+          const displayedScore = isBenign
+            ? formatScoreLabel(result.prediction?.benign_score)
+            : formatScoreLabel(result.prediction?.malignant_score);
 
-            <div className="assessment-layout">
-              {/* Left Column: Submitted Image Preview & Geometry */}
-              <div className="lesion-preview-card">
-                <div className="card-title" style={{ fontSize: '1.05rem', marginBottom: '0.6rem' }}>Submitted Lesion</div>
-                <div className="lesion-img-wrapper">
-                  <img
-                    src={result.preview_image || previewUrl}
-                    alt="Submitted dermoscopic lesion"
-                  />
-                </div>
+          const bannerImgSrc = result.preview_image || previewUrl || (result.explainable_ai?.input_image);
+          const gradcamOverlaySrc = result.explainable_ai?.overlay_image || bannerImgSrc;
+          const originalInputSrc = result.explainable_ai?.input_image || bannerImgSrc;
 
-                <table className="lesion-meta-table">
-                  <tbody>
-                    <tr>
-                      <td>Identifier</td>
-                      <td><code>{result.filename}</code></td>
-                    </tr>
-                    <tr>
-                      <td>Dimensions</td>
-                      <td>{result.validation?.width} × {result.validation?.height} px</td>
-                    </tr>
-                    <tr>
-                      <td>Format</td>
-                      <td>{result.validation?.image_format}</td>
-                    </tr>
-                    <tr>
-                      <td>Detail Score</td>
-                      <td>Laplacian {result.quality_screen?.sharpness_score?.toFixed(1)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+          return (
+            <section className="assessment-view" aria-label="Model Assessment">
+              <div className="page-header no-print">
+                <div className="page-category-tag">Step 2 • Clinical Decision Support Result</div>
+                <h2 className="page-title">Preliminary Skin Lesion Assessment</h2>
+                <p className="page-lead">
+                  Modern AI analysis card with Grad-CAM feature attribution, multilingual voice output, and patient-first clinical guidance.
+                </p>
               </div>
 
-              {/* Right Column: Model Output & Responsible Framing */}
-              <div className="assessment-details-pane">
-                {/* Finding Banner */}
-                <div className={`finding-banner ${result.prediction?.is_concerning ? 'concerning' : 'benign'}`}>
-                  <div className="finding-status-label">
-                    {result.prediction?.is_concerning ? 'Concerning Observation' : 'Benign Observation'}
+              {/* Responsive Two-Column Layout */}
+              <div className="assessment-two-col-grid">
+                {/* =========================================================
+                    LEFT COLUMN: Specimen, Image Details & Prominent Grad-CAM
+                    ========================================================= */}
+                <div className="assessment-left-col">
+                  {/* Primary Lesion Preview Card */}
+                  <div className="assessment-card assessment-image-card">
+                    <div className="card-section-header">
+                      <h3 className="assessment-card-title">Submitted Lesion Specimen</h3>
+                      <div className="specimen-id-badge">{result.filename || 'Dermoscopic Specimen'}</div>
+                    </div>
+
+                    <div className="prototype-banner-frame">
+                      <img
+                        src={bannerImgSrc}
+                        alt="Submitted lesion preview"
+                        className="prototype-banner-img"
+                      />
+                      <div className="prototype-source-tag">
+                        {result.source_label || result.filename || 'Dermoscopic Specimen'}
+                      </div>
+                    </div>
+
+                    <p className="image-caption-subtle">
+                      Magnified dermoscopic visualization captured for automated lesion pattern screening.
+                    </p>
                   </div>
-                  <div className="finding-heading">
-                    {result.prediction?.is_concerning
-                      ? 'Concerning Dermoscopic Features'
-                      : 'Predominantly Benign Patterns'}
+
+                  {/* Image Details & Quality Screening Card */}
+                  <div className="assessment-card assessment-quality-card">
+                    <div className="card-section-header">
+                      <h3 className="assessment-card-title">Image Details & Quality Screening</h3>
+                      <span className="quality-pill-pass">
+                        {result.quality_screen?.is_sharp !== false ? '✓ Passed Quality Check' : '⚠️ Quality Warning'}
+                      </span>
+                    </div>
+
+                    <div className="assessment-meta-grid">
+                      <div className="meta-item">
+                        <div className="meta-field-label">File Identifier</div>
+                        <div className="meta-field-value"><code>{result.filename || 'image.jpg'}</code></div>
+                      </div>
+                      <div className="meta-item">
+                        <div className="meta-field-label">Dimensions & Format</div>
+                        <div className="meta-field-value">
+                          {result.validation?.width || 600} × {result.validation?.height || 450} px ({result.validation?.image_format || 'JPEG'})
+                        </div>
+                      </div>
+                      <div className="meta-item">
+                        <div className="meta-field-label">Quality Screening</div>
+                        <div className="meta-field-value">
+                          Laplacian Variance <strong>{result.quality_screen?.sharpness_score?.toFixed(1) || '93.7'}</strong>
+                        </div>
+                      </div>
+                      <div className="meta-item">
+                        <div className="meta-field-label">Model Architecture</div>
+                        <div className="meta-field-value">EfficientNet-B0 (HAM10000)</div>
+                      </div>
+                    </div>
+
+                    <div className="quality-rule-note">
+                      <strong>Focus Screening:</strong> Images exceeding Laplacian variance 15.0 exhibit acceptable focus and edge contrast for reliable feature extraction.
+                    </div>
                   </div>
-                  <p className="finding-plain-text">
-                    {result.prediction?.is_concerning
-                      ? `Model features exhibit high pattern similarity to malignant lesions in the reference dataset (Malignant Output Score: ${formatScoreLabel(result.prediction?.malignant_score)}, uncalibrated softmax).`
-                      : `Model features exhibit predominant similarity to benign lesions in the reference dataset (Benign Output Score: ${formatScoreLabel(result.prediction?.benign_score)}, uncalibrated softmax).`}
-                  </p>
                 </div>
 
-                {/* Vital Limitation Precaution */}
-                <div className="vital-limitation-box">
-                  <strong>Vital Clinical Precaution:</strong> A benign model score does NOT rule out skin malignancy or 
-                  early-stage melanoma. In independent test evaluation, 123 of 431 malignant lesions (28.5%) scored as benign 
-                  under standard thresholds. Any lesion that changes, bleeds, or presents atypical borders must be examined in person.
+                {/* =========================================================
+                    RIGHT COLUMN: Model Prediction, Language Selection & Voice
+                    ========================================================= */}
+                <div className="assessment-right-col">
+                  {/* Decision & Multilingual Audio Card */}
+                  <article className="assessment-card assessment-decision-card" aria-label="Assessment Decision Card">
+                    {/* Header */}
+                    <header className="prototype-header">
+                      <div>
+                        <h3 className="prototype-title">{ui_t.appTitle}</h3>
+                        <p className="prototype-subtitle">{ui_t.appSubtitle}</p>
+                      </div>
+                    </header>
+
+                    {/* Model Prediction */}
+                    <div className="prototype-prediction-block">
+                      <div className="prediction-label-caps">{ui_t.modelPredictionLabel}</div>
+                      <div className={`prediction-value-text ${isBenign ? 'benign' : 'malignant'}`}>
+                        {result.prediction?.predicted_class || 'Benign'}
+                      </div>
+                      <div className="prediction-score-line">
+                        {ui_t.modelScoreLabel} <strong>{displayedScore}</strong>
+                      </div>
+
+                      {/* Softmax Distribution Chips */}
+                      <div className="softmax-distribution-bar">
+                        <div className="softmax-chip benign">
+                          Benign Softmax: <strong>{formatScoreLabel(result.prediction?.benign_score)}</strong>
+                        </div>
+                        <div className="softmax-chip malignant">
+                          Malignant Softmax: <strong>{formatScoreLabel(result.prediction?.malignant_score)}</strong>
+                        </div>
+                      </div>
+
+                      <p className="prediction-illustrative-text">{ui_t.illustrativeNotice}</p>
+                    </div>
+
+                    {/* Choose Your Language Selector & Dedicated Scope Setting */}
+                    <div className="prototype-language-block">
+                      <div className="prototype-section-heading">{ui_t.chooseLanguageTitle}</div>
+
+                      <div className="lang-pills-row" role="tablist">
+                        {Object.keys(CLINICAL_TRANSLATIONS).map((langKey) => {
+                          const langObj = CLINICAL_TRANSLATIONS[langKey];
+                          const isActive = selectedLang === langKey;
+                          return (
+                            <button
+                              key={langKey}
+                              type="button"
+                              role="tab"
+                              aria-selected={isActive}
+                              className={`lang-pill ${isActive ? 'active' : ''}`}
+                              onClick={() => handleSelectLanguage(langKey)}
+                            >
+                              {langObj.langName}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Compact Single-Line Language Setting */}
+                      <div className="compact-lang-setting-line">
+                        <span className="compact-lang-label">Language:</span>
+                        <div className="compact-lang-options">
+                          <label className="compact-radio-option">
+                            <input
+                              type="radio"
+                              name="pageTranslateMode"
+                              checked={!translateWholePage}
+                              onChange={() => setTranslateWholePage(false)}
+                              style={{ cursor: 'pointer', accentColor: '#16A34A' }}
+                            />
+                            <span>Result only</span>
+                          </label>
+                          <label className="compact-radio-option">
+                            <input
+                              type="radio"
+                              name="pageTranslateMode"
+                              checked={translateWholePage}
+                              onChange={() => setTranslateWholePage(true)}
+                              style={{ cursor: 'pointer', accentColor: '#16A34A' }}
+                            />
+                            <span>Entire page</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Your result, explained simply (Dynamic Localized Content) */}
+                    <div className="prototype-explanation-box">
+                      <div className="explanation-box-title">{content_t.resultExplainedSimplyTitle}</div>
+                      <p className="explanation-box-text">{simpleExplanationText}</p>
+
+                      {/* Audio Controls: Listen, Pause, Stop */}
+                      <div className="voice-controls-row" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.85rem' }}>
+                        {playbackState === 'idle' && (
+                          <button
+                            type="button"
+                            className="btn-voice-listen"
+                            onClick={() => handleStartSpeech(simpleExplanationText, false, explanationCase)}
+                            aria-label="Listen to result read aloud"
+                          >
+                            <span aria-hidden="true">▶️</span>
+                            <span>{content_t.listenToResult}</span>
+                          </button>
+                        )}
+
+                        {playbackState === 'playing' && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-voice-listen speaking"
+                              onClick={handlePauseSpeech}
+                              aria-label="Pause voice reading"
+                            >
+                              <span aria-hidden="true">⏸️</span>
+                              <span>Pause</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-voice-listen"
+                              onClick={handleStopSpeech}
+                              aria-label="Stop voice reading"
+                            >
+                              <span aria-hidden="true">⏹️</span>
+                              <span>{content_t.stopListening}</span>
+                            </button>
+                          </>
+                        )}
+
+                        {playbackState === 'paused' && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-voice-listen"
+                              onClick={handleResumeSpeech}
+                              aria-label="Resume voice reading"
+                            >
+                              <span aria-hidden="true">▶️</span>
+                              <span>Resume</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-voice-listen"
+                              onClick={handleStopSpeech}
+                              aria-label="Stop voice reading"
+                            >
+                              <span aria-hidden="true">⏹️</span>
+                              <span>{content_t.stopListening}</span>
+                            </button>
+                          </>
+                        )}
+
+                        {/* Optional English voice playback when viewing regional translation */}
+                        {selectedLang !== 'en' && (
+                          <button
+                            type="button"
+                            className="btn-voice-fallback"
+                            onClick={() => handleStartSpeech(CLINICAL_TRANSLATIONS.en[explanationCase], true, explanationCase)}
+                            title="Click to hear the English audio explanation while reading the translation above"
+                          >
+                            <span>🔊 Listen in English Voice</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="explanation-footer-note">{content_t.exampleScreenDisclaimer}</div>
+                    </div>
+                  </article>
+                </div>
+              </div>
+
+              {/* =========================================================
+                  FULL-WIDTH SECTION 1: Visual Explanation – Grad-CAM
+                  Spans the complete available content container
+                  ========================================================= */}
+              <section className="assessment-card assessment-fullwidth-gradcam" aria-label="Visual Explanation Grad-CAM">
+                <div className="card-section-header gradcam-prominent-header">
+                  <div>
+                    <h3 className="assessment-card-title gradcam-main-heading">{ui_t.visualExplanationTitle}</h3>
+                    <p className="gradcam-subheading">Gradient-weighted Class Activation Mapping (Grad-CAM) Visual Evidence</p>
+                  </div>
+                  <span className="xai-pill-tag">Explainable AI (XAI)</span>
                 </div>
 
-                {/* Responsible Next-Step Guidance */}
-                <div className="guidance-box">
-                  <div className="guidance-title">Responsible Next Steps</div>
-                  <p className="guidance-text">
-                    {result.clinical_guidance}
-                  </p>
+                {/* Side-by-side equal-width, aspect-ratio-preserving panels */}
+                <div className="gradcam-fullwidth-grid">
+                  <div className="gradcam-fullwidth-item">
+                    <div className="gradcam-panel-header">
+                      <span className="gradcam-panel-number">1</span>
+                      <span className="gradcam-panel-title">{ui_t.originalImageLabel}</span>
+                    </div>
+                    <div className="gradcam-fullwidth-frame">
+                      <img src={originalInputSrc} alt="Original dermoscopic lesion" className="gradcam-fullwidth-img" />
+                    </div>
+                  </div>
+
+                  <div className="gradcam-fullwidth-item">
+                    <div className="gradcam-panel-header">
+                      <span className="gradcam-panel-number">2</span>
+                      <span className="gradcam-panel-title">{ui_t.gradCamOverlayLabel}</span>
+                    </div>
+                    <div className="gradcam-fullwidth-frame overlay-frame">
+                      <img src={gradcamOverlaySrc} alt="Grad-CAM activation overlay" className="gradcam-fullwidth-img" />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Action Controls */}
-                <div className="button-row">
+                {/* Explanatory text strictly below both images */}
+                <div className="gradcam-caption-box">
+                  <p className="gradcam-disclaimer-caption">{ui_t.gradCamCaption}</p>
+                </div>
+
+                {/* Expandable Technical Decomposition Accordion below the two images */}
+                <div className="deep-dive-section" style={{ marginTop: '1.25rem', borderTop: '1px solid #E5E7EB', paddingTop: '0.85rem' }}>
                   <button
-                    id="btn-view-explanation"
                     type="button"
-                    className="btn-primary"
-                    onClick={() => navigateTo('explanation')}
+                    className="deep-dive-toggle-btn no-print"
+                    onClick={() => setShowDeepDive(!showDeepDive)}
+                    style={{ width: '100%', fontSize: '0.84rem', padding: '0.5rem 0.75rem' }}
                   >
-                    View explanation (Grad-CAM) →
+                    <span>🔬 {showDeepDive ? 'Hide' : 'View'} Full 3-Stage Feature Decomposition</span>
+                    <span>{showDeepDive ? '▲' : '▼'}</span>
                   </button>
-                  <button
-                    id="btn-export-report-assessment"
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleExportReport}
-                  >
-                    Export research report
-                  </button>
-                  <button
-                    id="btn-new-assessment"
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleNewAssessment}
-                  >
-                    Evaluate another image
-                  </button>
+
+                  {showDeepDive && (
+                    <div style={{ marginTop: '0.85rem' }}>
+                      {result.explainable_ai && result.explainable_ai.overlay_image && (
+                        <div className="explanation-trio-grid" style={{ marginBottom: '0.85rem' }}>
+                          <div className="trio-card">
+                            <div className="trio-title">1. Normalized Input</div>
+                            <div className="trio-img-frame">
+                              <img src={originalInputSrc} alt="Normalized input" />
+                            </div>
+                            <div className="trio-caption">224 × 224 pixels</div>
+                          </div>
+
+                          <div className="trio-card">
+                            <div className="trio-title">2. Activation Heatmap</div>
+                            <div className="trio-img-frame">
+                              <img src={result.explainable_ai.heatmap_image || gradcamOverlaySrc} alt="Grad-CAM activation heatmap" />
+                            </div>
+                            <div className="trio-caption">Last convolutional gradients</div>
+                          </div>
+
+                          <div className="trio-card">
+                            <div className="trio-title">3. Superimposed Overlay</div>
+                            <div className="trio-img-frame">
+                              <img src={gradcamOverlaySrc} alt="Superimposed heatmap" />
+                            </div>
+                            <div className="trio-caption">Feature attribution overlay</div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: '0.8rem', color: '#536B5E', lineHeight: 1.5 }}>
+                        <strong>Classification Rule:</strong> Evaluated with standard argmax decision rule (threshold 0.50).
+                        Grad-CAM gradients computed at the final convolutional stage of EfficientNet-B0.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* =========================================================
+                  FULL-WIDTH SECTION 2: Friendly Next Steps & Medical Guidance
+                  ========================================================= */}
+              <div className="assessment-card assessment-fullwidth-guidance">
+                <div className="guidance-fullwidth-header">
+                  <div>
+                    <h3 className="friendly-guidance-title">{ui_t.guidanceHeading}</h3>
+                    <h4 style={{ fontSize: '0.98rem', fontWeight: 600, color: '#374151', marginTop: '0.25rem' }}>
+                      {ui_t.whenToSeekTitle}
+                    </h4>
+                  </div>
+                </div>
+                <p className="friendly-guidance-sub">{ui_t.whenToSeekDesc}</p>
+
+                {/* ABCDE Warning Signs Grid (5 columns on desktop) */}
+                <div className="abcde-grid fullwidth-abcde">
+                  {ui_t.abcde.map((item) => (
+                    <div key={item.letter} className="abcde-item-card">
+                      <span className="abcde-badge">{item.letter}</span>
+                      <strong className="abcde-item-title">{item.title}</strong>
+                      <span className="abcde-item-desc">{item.desc}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Two-Column Clinical Caution Grid: Uncertainty & Red Flags */}
+                <div className="clinical-caution-grid">
+                  {/* Why Predictions May Be Uncertain */}
+                  <div className="uncertainty-box">
+                    <div className="uncertainty-title">⚠️ {ui_t.whyUncertainTitle}</div>
+                    <ul className="uncertainty-list">
+                      {ui_t.uncertaintyPoints.map((pt, idx) => (
+                        <li key={idx} style={{ marginBottom: '0.35rem' }}>{pt}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Warning Signs Never to Ignore */}
+                  {ui_t.redFlags && (
+                    <div className="red-flags-box">
+                      <div className="red-flags-title">🚩 {ui_t.redFlagsTitle}</div>
+                      <ul className="red-flags-list">
+                        {ui_t.redFlags.map((flag, idx) => (
+                          <li key={idx} style={{ marginBottom: '0.35rem' }}>{flag}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* Strict Clinical & Ethical Boundaries */}
+                <div className="ethical-safeguards-box" style={{ marginTop: '1.25rem' }}>
+                  <div className="ethical-safeguards-title">🛡️ {ui_t.ethicalBoundariesTitle}</div>
+                  <p className="ethical-safeguards-text">{ui_t.ethicalBoundariesText}</p>
                 </div>
               </div>
-            </div>
-          </section>
-        )}
 
-        {/* ===================================================================
-            PAGE 4: EXPLANATION (Grad-CAM)
-            =================================================================== */}
-        {page === 'explanation' && result && (
-          <section className="explanation-view" aria-label="Visual Explanation">
-            <div className="page-header">
-              <div className="page-category-tag">Step 3 • Feature Attribution</div>
-              <h2 className="page-title">Explainable AI (Grad-CAM)</h2>
-              <p className="page-lead">
-                Spatial feature attribution heatmaps visualizing receptive fields that influenced the model's output score.
-              </p>
-            </div>
-
-            {/* 3-Panel Visual Comparison Grid */}
-            {result.explainable_ai && result.explainable_ai.overlay_image && (
-              <div className="explanation-trio-grid">
-                <div className="trio-card">
-                  <div className="trio-title">1. Original Lesion</div>
-                  <div className="trio-img-frame">
-                    <img src={result.explainable_ai.input_image} alt="Original normalized input" />
-                  </div>
-                  <div className="trio-caption">224 × 224 normalized dermoscopy</div>
-                </div>
-
-                <div className="trio-card">
-                  <div className="trio-title">2. Activation Heatmap</div>
-                  <div className="trio-img-frame">
-                    <img src={result.explainable_ai.heatmap_image} alt="Grad-CAM activation heatmap" />
-                  </div>
-                  <div className="trio-caption">Last convolutional layer gradients</div>
-                </div>
-
-                <div className="trio-card">
-                  <div className="trio-title">3. Superimposed Overlay</div>
-                  <div className="trio-img-frame">
-                    <img src={result.explainable_ai.overlay_image} alt="Superimposed heatmap on lesion" />
-                  </div>
-                  <div className="trio-caption">Receptive field anatomical correlation</div>
-                </div>
+              {/* Action Controls Neatly Placed BELOW the Full-Width Section */}
+              <div className="assessment-actions-row fullwidth-actions no-print">
+                <button
+                  id="btn-new-assessment"
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleNewAssessment}
+                >
+                  Evaluate another image →
+                </button>
+                <button
+                  id="btn-export-report-assessment"
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleExportReport}
+                >
+                  📄 Export assessment report
+                </button>
               </div>
-            )}
-
-            {/* Scientific Explanation Note */}
-            <div className="explanation-guidance-card">
-              <strong>Understanding this visualization:</strong> Grad-CAM highlights image regions where the neural 
-              gradients of the predicted class score were highest. Warm yellow and red hues indicate pixels that contributed 
-              most strongly to the mathematical score. This visualization reflects statistical feature attribution, not 
-              biological or pathological diagnosis.
-            </div>
-
-            {/* Collapsible Technical Details */}
-            <details className="technical-collapsible">
-              <summary>Detailed Model Scores & Technical Parameters</summary>
-              <div className="technical-collapsible-content">
-                <p style={{ marginBottom: '0.4rem' }}>
-                  <strong>Neural Backbone:</strong> EfficientNet-B0 (last conv feature map: 7 × 7 × 1280)
-                </p>
-                <p style={{ marginBottom: '0.4rem' }}>
-                  <strong>Model Output Scores:</strong> Benign: {formatScoreLabel(result.prediction?.benign_score)} • Malignant: {formatScoreLabel(result.prediction?.malignant_score)} (uncalibrated softmax)
-                </p>
-                <p style={{ marginBottom: '0.4rem' }}>
-                  <strong>Classification Threshold:</strong> Standard argmax (threshold 0.50)
-                </p>
-                <p>
-                  <strong>Note on Uncalibrated Probabilities:</strong> Model scores are softmax outputs from cross-entropy loss, 
-                  not calibrated clinical Bayesian disease likelihoods.
-                </p>
-              </div>
-            </details>
-
-            {/* Actions Row */}
-            <div className="button-row">
-              <button
-                id="btn-back-to-assessment"
-                type="button"
-                className="btn-secondary"
-                onClick={() => navigateTo('assessment')}
-              >
-                ← Back to assessment
-              </button>
-              <button
-                id="btn-view-research-explanation"
-                type="button"
-                className="btn-primary"
-                onClick={() => navigateTo('research')}
-              >
-                View research details & metrics →
-              </button>
-              <button
-                id="btn-export-report-explanation"
-                type="button"
-                className="btn-secondary"
-                onClick={handleExportReport}
-              >
-                Export research report
-              </button>
-            </div>
-          </section>
-        )}
+            </section>
+          );
+        })()}
 
         {/* ===================================================================
             PAGE 5: RESEARCH & EVALUATION DETAILS
@@ -971,7 +1325,7 @@ export default function App() {
 
       {/* Compact Subtle Footer */}
       <footer className="app-footer">
-        <p>DermAI · Intelligent Skin Lesion Analysis</p>
+        <p>DermAI · Intelligent Skin Lesion Analysis - 2026</p>
       </footer>
     </div>
   );

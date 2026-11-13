@@ -527,6 +527,197 @@ if active_file_path is not None:
                 with m_col2:
                     st.caption(f"Malignant: **{malignant_score:.2f}%**")
 
+                # Multilingual Plain-Language Explanation & Voice Assistant
+                st.markdown("---")
+                st.markdown("<div style='font-size: 0.95rem; font-weight: 700; color: #1E293B; margin-bottom: 0.4rem;'>🌐 Multilingual Voice Output & Simple Explanation</div>", unsafe_allow_html=True)
+
+                APP_TRANSLATIONS = {
+                    "English": {
+                        "code": "en-US",
+                        "caseA": "Your image has been classified as benign by our AI model. This does not guarantee that the lesion is harmless. If you notice any changes in its size, shape or colour, or experience bleeding or persistent itching, please consult a dermatologist.",
+                        "caseB": "The AI model has detected features associated with the malignant category. Please do not panic, but do not ignore this result. Arrange a prompt assessment with a qualified dermatologist. Only a proper medical examination and appropriate tests can determine what the lesion actually is.",
+                        "btn_text": "🔊 Listen to result (English)"
+                    },
+                    "తెలుగు (Telugu)": {
+                        "code": "te-IN",
+                        "caseA": "ఈ చిత్రాన్ని మా AI మోడల్ బెనైన్ (హానిచేయనిది) గా వర్గీకరించింది. అయితే దీని వల్ల మచ్చ పూర్తిగా ప్రమాదకరం కాదని హామీ ఇవ్వలేము. దీని పరిమాణం, ఆకారం లేదా రంగులో ఏవైనా మార్పులు గమనించినా, లేదా రక్తం కారడం, నిరంతర దురద ఉన్నా దయచేసి చర్మవ్యాధి నిపుణుడిని (డెర్మటాలజిస్ట్) సంప్రదించండి.",
+                        "caseB": "AI మోడల్ ఈ మచ్చలో మాలిగ్నెంట్ (ప్రమాదకర) వర్గానికి సంబంధించిన లక్షణాలను గుర్తించింది. దయచేసి ఆందోళన చెందవద్దు, కానీ ఈ ఫలితాన్ని నిర్లక్ష్యం చేయకండి. వెంటనే అర్హత కలిగిన చర్మవ్యాధి నిపుణుడితో (డెర్మటాలజిస్ట్) పరీక్ష చేయించుకోండి. సరైన వైద్య పరీక్షల ద్వారా మాత్రమే ఇది ఏమిటో నిర్ధారించగలరు.",
+                        "btn_text": "🔊 ఫలితం వినండి (తెలుగు)"
+                    },
+                    "ಕನ್ನಡ (Kannada)": {
+                        "code": "kn-IN",
+                        "caseA": "ನಮ್ಮ AI ಮಾದರಿಯು ಈ ಚಿತ್ರವನ್ನು ಬೆನೈನ್ (ಹಾನಿಕಾರಕವಲ್ಲದ್ದು) ಎಂದು ವರ್ಗೀಕರಿಸಿದೆ. ಆದರೆ ಇದು ಗಾಯವು ಸಂಪೂರ್ಣವಾಗಿ ಅಪಾಯವಿಲ್ಲದ್ದು ಎಂದು ಖಾತರಿ ನೀಡುವುದಿಲ್ಲ. ಇದರ ಗಾತ್ರ, ಆಕಾರ ಅಥವಾ ಬಣ್ಣದಲ್ಲಿ ಯಾವುದೇ ಬದಲಾವಣೆ ಕಂಡುಬಂದರೆ, ಅಥವಾ ರಕ್ತಸ್ರಾವ ಮತ್ತು ನಿರಂತರ ತುರಿಕೆ ಇದ್ದರೆ, ದಯವಿಟ್ಟು ಚರ್ಮರೋಗ ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+                        "caseB": "AI ಮಾದರಿಯು ಮ್ಯಾಲಿಗ್ನೆಂಟ್ (ಅಪಾಯಕಾರಿ) ವರ್ಗಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಲಕ್ಷಣಗಳನ್ನು ಪತ್ತೆಹಚ್ಚಿದೆ. ದಯವಿಟ್ಟು ಭಯಪಡಬೇಡಿ, ಆದರೆ ಈ ಫಲಿತಾಂಶವನ್ನು ನಿರ್ಲಕ್ಷಿಸಬೇಡಿ. ಶೀಘ್ರದಲ್ಲೇ ಅರ್ಹ ಚರ್ಮರೋಗ ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ ತಪಾಸಣೆ ಮಾಡಿಸಿಕೊಳ್ಳಿ. ಸರಿಯಾದ ವೈದ್ಯಕೀಯ ಪರೀಕ್ಷೆ ಮತ್ತು ತಪಾಸಣೆಗಳಿಂದ ಮಾತ್ರ ಗಾಯದ ನೈಜ ಸ್ವರೂಪವನ್ನು ನಿರ್ಧರಿಸಲು ಸಾಧ್ಯ.",
+                        "btn_text": "🔊 ಫಲಿತಾಂಶ ಆಲಿಸಿ (ಕನ್ನಡ)"
+                    },
+                    "हिन्दी (Hindi)": {
+                        "code": "hi-IN",
+                        "caseA": "हमारे AI मॉडल ने इस छवि को बिनाइन (हानिरहित) के रूप में वर्गीकृत किया है। हालांकि, यह इस बात की गारंटी नहीं देता कि यह पूरी तरह सुरक्षित है। यदि आप इसके आकार, रंग या रूप में कोई बदलाव देखते हैं, या इसमें खून बहना या लगातार खुजली होती है, तो कृपया त्वचा विशेषज्ञ (डर्मेटोलॉजिस्ट) से परामर्श लें।",
+                        "caseB": "AI मॉडल ने मैलिग्नेंट (घातक/संदिग्ध) श्रेणी से जुड़े लक्षणों का पता लगाया है। कृपया घबराएं नहीं, लेकिन इस परिणाम को अनदेखा भी न करें। जल्द से जल्द किसी योग्य त्वचा विशेषज्ञ से जांच करवाएं। केवल उचित चिकित्सकीय जांच और टेस्ट ही यह तय कर सकते हैं कि यह वास्तव में क्या है।",
+                        "btn_text": "🔊 परिणाम सुनें (हिन्दी)"
+                    },
+                    "தமிழ் (Tamil)": {
+                        "code": "ta-IN",
+                        "caseA": "இந்த படத்தை எங்கள் AI மாதிரி தீங்கற்றதாக (Benign) வகைப்படுத்தியுள்ளது. இருப்பினும், இந்த தழும்பு முற்றிலும் ஆபத்தற்றது என்று இது உத்தரவாதம் அளிக்காது. இதன் அளவு, வடிவம் அல்லது நிறத்தில் ஏதேனும் மாற்றங்கள் ஏற்பட்டாலோ, அல்லது இரத்தப்போக்கு, தொடர் அரிப்பு இருந்தாலோ தயவுசெய்து தோல் மருத்துவரை அணுகவும்.",
+                        "caseB": "இந்த தழும்பில் வீரியமிக்க (Malignant) வகையுடன் தொடர்புடைய அம்சங்களை AI மாதிரி கண்டறிந்துள்ளது. தயவுசெய்து பீதியடைய வேண்டாம், ஆனால் இந்த முடிவை புறக்கணிக்காதீர்கள். உடனடியாக ஒரு தகுதிவாய்ந்த தோல் மருத்துவரை சந்தித்து பரிசோதனை செய்துகொள்ளுங்கள். முறையான மருத்துவ பரிசோதனைகள் மட்டுமே இதன் உண்மை நிலையை உறுதிப்படுத்த முடியும்.",
+                        "btn_text": "🔊 ஒலி கேட்க (தமிழ்)"
+                    }
+                }
+
+                chosen_lang = st.selectbox(
+                    "Choose your language / భాషను ఎంచుకోండి / ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ:",
+                    list(APP_TRANSLATIONS.keys()),
+                    index=0,
+                    key="voice_lang_select"
+                )
+
+                lang_scope_mode = st.radio(
+                    "⚙️ Language Scope Setting:",
+                    options=["Result Content Only (Default: Headers & guidelines remain in English)", "Translate Entire Page"],
+                    index=0,
+                    horizontal=True,
+                    key="lang_scope_setting"
+                )
+
+                active_case_text = APP_TRANSLATIONS[chosen_lang]["caseB"] if predicted_class == "Malignant" else APP_TRANSLATIONS[chosen_lang]["caseA"]
+                lang_bcp = APP_TRANSLATIONS[chosen_lang]["code"]
+                btn_caption = APP_TRANSLATIONS[chosen_lang]["btn_text"]
+
+                st.info(f"**Your result, explained simply ({chosen_lang}):**\n\n{active_case_text}")
+
+                case_suffix = "caseB" if predicted_class == "Malignant" else "caseA"
+                lang_short_codes = {
+                    "English": "en",
+                    "తెలుగు (Telugu)": "te",
+                    "ಕನ್ನಡ (Kannada)": "kn",
+                    "हिन्दी (Hindi)": "hi",
+                    "தமிழ் (Tamil)": "ta"
+                }
+                short_code = lang_short_codes.get(chosen_lang, "en")
+                audio_file = Path("frontend/public/audio") / f"{short_code}_{case_suffix}.mp3"
+                if audio_file.exists():
+                    st.caption(f"🔊 **Native Voice Output ({chosen_lang})**:")
+                    st.audio(str(audio_file), format="audio/mp3")
+
+                import streamlit.components.v1 as components
+                safe_js_text = active_case_text.replace("'", "\\'").replace('"', '\\"').replace("\n", " ")
+                safe_en_text = (APP_TRANSLATIONS["English"]["caseB"] if predicted_class == "Malignant" else APP_TRANSLATIONS["English"]["caseA"]).replace("'", "\\'").replace('"', '\\"').replace("\n", " ")
+                
+                tts_html = f"""
+                <div style="margin: 6px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <button id="ttsBtn" onclick="speakText()" style="
+                        background-color: #0F766E;
+                        color: white;
+                        border: none;
+                        padding: 8px 14px;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 13px;
+                        cursor: pointer;
+                    ">
+                        {btn_caption}
+                    </button>
+                    <button id="pauseBtn" onclick="pauseText()" style="
+                        background-color: #D97706;
+                        color: white;
+                        border: none;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 13px;
+                        cursor: pointer;
+                    ">
+                        ⏸ Pause
+                    </button>
+                    <button id="resumeBtn" onclick="resumeText()" style="
+                        background-color: #2563EB;
+                        color: white;
+                        border: none;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 13px;
+                        cursor: pointer;
+                    ">
+                        ▶ Resume
+                    </button>
+                    <button id="stopBtn" onclick="stopText()" style="
+                        background-color: #EF4444;
+                        color: white;
+                        border: none;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 13px;
+                        cursor: pointer;
+                    ">
+                        ⏹ Stop
+                    </button>
+                    <button id="fallbackEnBtn" onclick="speakEnglishFallback()" style="
+                        background-color: #F1F5F9;
+                        color: #0369A1;
+                        border: 1px solid #BAE6FD;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 12px;
+                        cursor: pointer;
+                    ">
+                        🔊 English Audio Fallback
+                    </button>
+                </div>
+                <div id="voiceNotice" style="display: none; margin-top: 6px; padding: 6px 10px; background-color: #FEF3C7; border: 1px solid #FCD34D; border-radius: 6px; font-size: 12px; color: #92400E;">
+                    <strong>Notice:</strong> Your browser does not have a native voice engine installed for this language. The translation is shown above, and you can click 'English Audio Fallback' to hear the explanation.
+                </div>
+                <script>
+                    function speakText() {{
+                        if (!('speechSynthesis' in window)) {{
+                            alert('Web Speech API is not supported in this browser.');
+                            return;
+                        }}
+                        window.speechSynthesis.cancel();
+                        const utterance = new SpeechSynthesisUtterance("{safe_js_text}");
+                        utterance.lang = "{lang_bcp}";
+                        utterance.rate = 0.92;
+                        
+                        const voices = window.speechSynthesis.getVoices();
+                        const targetLang = "{lang_bcp}".toLowerCase();
+                        const matched = voices.find(v => v.lang && v.lang.toLowerCase().replace('_', '-').startsWith(targetLang));
+                        if (matched) {{
+                            utterance.voice = matched;
+                        }} else if ("{lang_bcp}" !== "en-US") {{
+                            const notice = document.getElementById("voiceNotice");
+                            if (notice) notice.style.display = "block";
+                        }}
+                        window.speechSynthesis.speak(utterance);
+                    }}
+                    function speakEnglishFallback() {{
+                        if (!('speechSynthesis' in window)) return;
+                        window.speechSynthesis.cancel();
+                        const utterance = new SpeechSynthesisUtterance("{safe_en_text}");
+                        utterance.lang = "en-US";
+                        utterance.rate = 0.92;
+                        window.speechSynthesis.speak(utterance);
+                    }}
+                    function pauseText() {{
+                        if ('speechSynthesis' in window && window.speechSynthesis.speaking) {{
+                            window.speechSynthesis.pause();
+                        }}
+                    }}
+                    function resumeText() {{
+                        if ('speechSynthesis' in window && window.speechSynthesis.paused) {{
+                            window.speechSynthesis.resume();
+                        }}
+                    }}
+                    function stopText() {{
+                        if ('speechSynthesis' in window) {{
+                            window.speechSynthesis.cancel();
+                        }}
+                    }}
+                </script>
+                """
+                components.html(tts_html, height=72)
+
                 # Cautious Clinical Support Guidance
                 if predicted_class == "Malignant" or malignant_score > 30.0:
                     st.markdown(
